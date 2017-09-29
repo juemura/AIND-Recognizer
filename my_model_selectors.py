@@ -76,8 +76,21 @@ class SelectorBIC(ModelSelector):
         """
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-        # TODO implement model selection based on BIC scores
-        raise NotImplementedError
+        # DONE implement model selection based on BIC scores
+        BIC = float("inf")
+        best_n = self.n_constant
+        for n in range(self.min_n_components, self.max_n_components+1):
+            try:
+                model = GaussianHMM(n_components=n, n_iter=1000).fit(self.x, self.lengths)
+                logL = model.score(self.X, self.lengths)
+                temp = (-2)*logL + (n*n+2*n*model.n_features-1)*math.log(len(self.sequences))
+                if BIC > temp:
+                    BIC = temp
+                    best_n = n
+                break
+            except:
+                pass
+        return GaussianHMM(n_components=best_n, n_iter=1000).fit(self.X, self.lengths)
 
 
 class SelectorDIC(ModelSelector):
@@ -85,7 +98,7 @@ class SelectorDIC(ModelSelector):
 
     Biem, Alain. "A model selection criterion for classification: Application to hmm topology optimization."
     Document Analysis and Recognition, 2003. Proceedings. Seventh International Conference on. IEEE, 2003.
-    http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.58.6208&rep=rep1&type=pdf
+    http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.58.6208&rep=rep1&type=pdfs
     https://pdfs.semanticscholar.org/ed3d/7c4a5f607201f3848d4c02dd9ba17c791fc2.pdf
     DIC = log(P(X(i)) - 1/(M-1)SUM(log(P(X(all but i))
     '''
@@ -93,8 +106,26 @@ class SelectorDIC(ModelSelector):
     def select(self):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-        # TODO implement model selection based on DIC scores
-        raise NotImplementedError
+        # DONE implement model selection based on DIC scores
+        DIC = float("inf")
+        best_n = self.n_constant
+        for n in range(self.min_n_components, self.max_n_components+1):
+            try:
+                model = GaussianHMM(n_components=n, n_iter=1000).fit(self.x, self.lengths)
+                logL = model.score(self.X, self.lengths)
+                competing_words = [w for w in self.words if w != self.this_word]
+                competing_logLs = 0
+                for w in competing_words:
+                    x,l = self.hwords[w]
+                    competing_logLs += model.score(x,l)
+                temp = logL - competing_logLs / len(competing_words)
+                if DIC > temp:
+                    DIC = temp
+                    best_n = n
+                break
+            except:
+                pass
+        return GaussianHMM(n_components=best_n, n_iter=1000).fit(self.X, self.lengths)
 
 
 class SelectorCV(ModelSelector):
@@ -104,6 +135,26 @@ class SelectorCV(ModelSelector):
 
     def select(self):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
+        # DONE implement model selection using CV
+        highest_logL_mean = float("-inf")
+        best_n = self.n_constant
+        for n in range(self.min_n_components, self.max_n_components+1):
+            try:
+                logL_arr = []
+                split_method = KFold()
+                indices = split_method.split(self.sequences)
+                for cv_train_idx, cv_test_idx in indices:
+                    x_train, len_train = combine_sequences(cv_train_idx, self.sequences)
+                    model = GaussianHMM(n_components=n, n_iter=1000).fit(x_train, len_train)
+                    x_test, len_test = combine_sequences(cv_test_idx, self.sequences)
+                    logL = model.score(x_test, len_test)
+                    logL_arr.append(logL)
+                if highest_logL_mean < np.mean(logL_arr):
+                    highest_logL_mean = np.mean(logL_arr)
+                    best_n = n
+                break
+            except:
+                pass
+        return GaussianHMM(n_components=best_n, n_iter=1000).fit(self.X, self.lengths)
 
-        # TODO implement model selection using CV
-        raise NotImplementedError
+
