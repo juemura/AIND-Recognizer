@@ -81,13 +81,12 @@ class SelectorBIC(ModelSelector):
         best_n = self.n_constant
         for n in range(self.min_n_components, self.max_n_components+1):
             try:
-                model = GaussianHMM(n_components=n, n_iter=1000).fit(self.x, self.lengths)
+                model = GaussianHMM(n_components=n, n_iter=1000).fit(self.X, self.lengths)
                 logL = model.score(self.X, self.lengths)
                 temp = (-2)*logL + (n*n+2*n*model.n_features-1)*math.log(len(self.sequences))
                 if BIC > temp:
                     BIC = temp
                     best_n = n
-                break
             except:
                 pass
         return GaussianHMM(n_components=best_n, n_iter=1000).fit(self.X, self.lengths)
@@ -107,22 +106,21 @@ class SelectorDIC(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # DONE implement model selection based on DIC scores
-        DIC = float("inf")
+        DIC = float("-inf")
         best_n = self.n_constant
+        competing_words = [w for w in self.words if w != self.this_word]
+        competing_logLs = 0.0
         for n in range(self.min_n_components, self.max_n_components+1):
             try:
-                model = GaussianHMM(n_components=n, n_iter=1000).fit(self.x, self.lengths)
-                logL = model.score(self.X, self.lengths)
-                competing_words = [w for w in self.words if w != self.this_word]
-                competing_logLs = 0
+                model = GaussianHMM(n_components=n, n_iter=1000).fit(self.X, self.lengths)
+                logL = model.score(self.X, self.lengths)                
                 for w in competing_words:
                     x,l = self.hwords[w]
                     competing_logLs += model.score(x,l)
-                temp = logL - competing_logLs / len(competing_words)
-                if DIC > temp:
+                temp = logL - (competing_logLs / len(competing_words))
+                if DIC < temp:
                     DIC = temp
                     best_n = n
-                break
             except:
                 pass
         return GaussianHMM(n_components=best_n, n_iter=1000).fit(self.X, self.lengths)
@@ -152,7 +150,6 @@ class SelectorCV(ModelSelector):
                 if highest_logL_mean < np.mean(logL_arr):
                     highest_logL_mean = np.mean(logL_arr)
                     best_n = n
-                break
             except:
                 pass
         return GaussianHMM(n_components=best_n, n_iter=1000).fit(self.X, self.lengths)
